@@ -216,11 +216,13 @@ class ResBlock(nn.Module):
             self.att = Attention(out_channels, heads, use_2d=use_2d)
             
 
-    def forward(self, x, time_emb=None):
+    def forward(self, x, time_emb=None, return_features=False):
         if not self.normalize_residual:
             y = x.clone()
         if self.normalize:
             x = self.norm1(x)
+        if return_features:
+            features = x.clone()
         if self.normalize_residual:
             y = x.clone()
         x = self.activation(x)
@@ -254,6 +256,8 @@ class ResBlock(nn.Module):
         x = x+y
         if self.attention:
             x = self.att(x)
+        if return_features:
+            return x, features
         return x
 
 
@@ -353,10 +357,13 @@ class Encoder(nn.Module):
             x = self.prenorm_1d_to_2d(x)
 
         x = x.reshape(x.size(0), x.size(1) * x.size(2), x.size(3))
-        if extract_features:
-            return x
+        # if extract_features:
+        #     return x
 
-        for layer in self.bottleneck_layers:
+        for i,layer in enumerate(self.bottleneck_layers):
+            if i==2 and extract_features:
+                x, features = layer(x, return_features=True)
+                return features
             x = layer(x)
                 
         x = self.norm_out(x)
